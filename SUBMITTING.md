@@ -152,22 +152,31 @@ Response:
 
 Your listing enters at `unverified` and is probed every 15 minutes.
 
-Reputation is a recency-weighted rolling score, so recent behaviour dominates —
-a service that broke yesterday can't hide behind a good month. Sustained clean
-probes promote a listing to `verified`; sustained failures demote it to
-`failing`, and prolonged failure eventually delists it. Recovery is automatic
-once probes pass again.
+Reputation is a recency-weighted rolling score: each probe moves the score 10%
+toward its result, so recent behaviour dominates and a service that broke
+yesterday can't hide behind a good month.
 
-Because the score is recency-weighted rather than a simple pass count, promotion
-takes a few hours of clean probes rather than a few minutes.
+**To reach `verified`** a listing needs at least 3 probes, no current failure
+streak, and a score above 0.8. Because the score climbs 10% per probe from a
+starting point of zero, that means roughly sixteen consecutive clean probes —
+about four hours, not four minutes. This is deliberate: the badge should cost
+something.
+
+**Five consecutive failures** drop a listing to `failing`.
+
+**Recovery returns a listing to `unverified`, not straight to `verified`.** One
+good probe after a failure streak proves liveness, not reliability — so the
+listing re-earns `verified` through the normal path. The badge never outruns the
+score.
+
+**Thirty days in `failing`** auto-delists the listing. Fix the endpoint and it
+recovers on the next passing probe; there's no penalty for having been down.
 
 Check status any time:
 
 ```bash
 curl -s https://api.nohumans.directory/v1/listings/YOUR_ID
 ```
-
----
 
 ## Updating a listing
 
