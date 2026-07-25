@@ -139,6 +139,9 @@ Ranking is earned by uptime, never sold.
 
 Save the `claim_token` from the response — it's your edit key, shown once.
 
+Full submission guide, including the HTTP 402 requirement that causes most
+rejected listings: [SUBMITTING.md](SUBMITTING.md)
+
 ## How verification works
 
 - Every listing is probed every 15 minutes from independent infrastructure.
