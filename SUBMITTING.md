@@ -146,6 +146,47 @@ Response:
 }
 ```
 
+### Warnings
+
+A submission may come back with a `warnings` array alongside the claim token:
+
+```json
+{
+  "id": "f6bc2e23-c28",
+  "claim_token": "…",
+  "status": "unverified",
+  "warnings": [
+    {
+      "code": "endpoint_not_402",
+      "detail": "endpoint_url returned HTTP 404 to an unpaid GET, not 402. …"
+    }
+  ]
+}
+```
+
+Warnings never block a submission — the listing is already in. They are
+observations from a single check made while you are still here to act on them.
+
+| code | what it means |
+|---|---|
+| `endpoint_not_402` | an unpaid GET returned something other than 402 |
+| `endpoint_redirects` | a 3xx; probes do not follow redirects, so this will not verify |
+| `challenge_unreadable` | 402 returned, but no parseable payment requirements in the body or the `payment-required` header |
+| `probe_inconclusive` | we could not reach the endpoint just then — one observation, not a verdict |
+| `price_mismatch` | your declared price differs from the amount in the endpoint's own 402 |
+| `replacement_character` | name or description contains U+FFFD; some bytes did not survive encoding before reaching us |
+| `new_category` | the category is not used by any existing listing (fine, if nothing existing fits) |
+
+Each check stays silent unless it is certain. A price is only compared when the
+asset's decimals are known; an unreachable endpoint is reported as a single
+observation rather than a failure.
+
+After submission everything is public. Status, reliability score, probe history
+and the payment terms we observe in your 402 are all at
+`GET /v1/listings/:id`, refreshed every 15 minutes. We do not email operators
+when an endpoint breaks — monitoring your own service is yours to do, and the
+data to do it with is free.
+
 ---
 
 ## What happens next
