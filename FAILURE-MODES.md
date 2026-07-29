@@ -143,3 +143,26 @@ scoring uptime, but only if it labels them precisely rather than folding them
 into a failure rate.
 
 Case 4 is not a defect at all and must not be scored against either party.
+
+---
+
+## Addendum: a client-side case (not ours, cited)
+
+The four cases above are all endpoint-side, and all four were things we broke
+or found ourselves — that is the standard this document holds itself to.
+
+One more is worth recording because it rounds out a category we have no way to
+find: it lives entirely on the *paying* side, not the endpoint, and none of
+our probing (single sequential requests, one identity) could ever reproduce
+it.
+
+**Shared-wallet balance race.** If an agent framework runs multiple instances
+against one wallet, each checking its local balance before paying, two
+instances can both read the same balance, both decide they can afford it, and
+both sign — overdrawing the wallet or failing one payment downstream. A
+balance read is not a reservation. Classic TOCTOU, applied to agent wallets.
+Fix: atomic reserve-then-spend, or a facilitator-side hold, before signing.
+
+Credit: [@x402agentic](https://x.com/x402agentic) on X, who reported this —
+not a finding of ours, cited because it is real and belongs in the same
+taxonomy.
