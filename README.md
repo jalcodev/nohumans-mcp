@@ -58,6 +58,20 @@ https://api.nohumans.directory/mcp
 
 Transport: `streamable-http` · Authentication: none · Cost: free
 
+## Agent Skill
+
+For agents that support the [Agent Skills](https://agentskills.io) standard
+(Claude Code, Codex, and others), install the skill so the agent knows how
+to use the tools below intelligently — when to prefer `verified` listings,
+how to read `score`/`status`, and how to report a real outcome via
+`tx_hash`:
+
+```bash
+mkdir -p ~/.claude/skills/nohumans-directory
+curl -o ~/.claude/skills/nohumans-directory/SKILL.md \
+  https://raw.githubusercontent.com/jalcodev/nohumans-mcp/main/skills/nohumans-directory/SKILL.md
+```
+
 ## Tools
 
 ### `find_paid_service`
