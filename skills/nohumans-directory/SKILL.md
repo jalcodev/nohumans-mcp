@@ -28,8 +28,12 @@ APIs, or anything not paid via x402.
 Connect: `claude mcp add --transport http nohumans https://api.nohumans.directory/mcp`
 
 - **find_paid_service(query?, category?, max_price?, min_score?, limit?)**
-  — ranked search. Omit `query` and filter by `category` alone for browsing;
-  use `query` for free-text matching against name/description.
+  — ranked search. Describe the actual need in `query` — what data, what
+  freshness, what format, what constraint — rather than just a topic word
+  or category alone; results are noticeably better matched to a specific
+  description than to a bare term. `category` is a useful narrowing filter
+  when you know the right one, but isn't required and doesn't need to be
+  exact — a close guess still works.
 - **get_service_details(id)** — full record for one listing: endpoint URL,
   request/response JSON Schema (when the seller provided one), accepted
   chains, pricing, and reputation detail (`last_ok_at`,
@@ -62,11 +66,14 @@ reliability.
 
 ## Before paying: check for a free sample
 
-If `get_service_details` returns a `sample_query` field, that's a genuinely
-free preview route — call it first to see real output shape before paying
-the priced `endpoint_url`. Most listings don't have one yet; if it's
-absent, there's no free preview available, and the request/response JSON
-Schema (if present) is the next-best signal of what to expect.
+Each `find_paid_service` result includes `has_sample` (boolean) — check
+this directly in the search results before deciding whether a detail call
+is worth making. `true` means `get_service_details` will return a
+`sample_query`: a genuinely free preview route, call it first to see real
+output shape before paying the priced `endpoint_url`. This is especially
+useful for a new or thinly-probed listing you can't yet judge from `score`
+alone. Most listings don't have a sample yet; if `has_sample` is `false`,
+skip straight to weighing `status`/`score`/price instead of looking for one.
 
 ## Reporting an outcome
 
@@ -94,7 +101,12 @@ optional. Skip this step entirely if the task doesn't call for it.
 - Don't treat `unverified` as equivalent to `failing` — it just means
   "not enough data yet," which is different from "known unreliable."
 - Don't call the priced `endpoint_url` to "test" a listing before paying —
-  it will return 402, not a preview. Use `sample_query` if present instead.
+  it will return 402, not a preview. Check `has_sample` in the search
+  result first, and use `sample_query` from the detail record if present.
 - Don't skip checking `status`/`score` just because a listing matched the
   query well — a strong text match with `status: "failing"` is still a bad
   pick if a verified alternative exists.
+- Don't pass just a bare category or single word as `query` when you have
+  a more specific need in mind — a fuller description of what's actually
+  required (freshness, format, a particular constraint) gets meaningfully
+  better matches than a topic word alone.
