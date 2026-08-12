@@ -37,7 +37,9 @@ Connect: `claude mcp add --transport http nohumans https://api.nohumans.director
 - **get_service_details(id)** — full record for one listing: endpoint URL,
   request/response JSON Schema (when the seller provided one), accepted
   chains, pricing, and reputation detail (`last_ok_at`,
-  `consecutive_failures`, `probe_count`).
+  `consecutive_failures`, `probe_count`, plus the newer fields covered
+  below — `x402_version`, `last_probed_at`, `status_changed_at`,
+  `onchain_unique_payers_30d`).
 
 REST equivalents exist at `GET /v1/discover` and `GET /v1/listings/:id` if
 not using MCP. Full field reference: `https://nohumans.directory/llms.txt`.
@@ -56,13 +58,40 @@ Every listing has a `status` and a `score`:
   search (ranked last) so it isn't silently hidden, but avoid unless no
   verified alternative exists for the task.
 
-`score` is 0–1, recency-weighted probe success — treat it as a tiebreaker
+`score` is 0-1, recency-weighted probe success — treat it as a tiebreaker
 among verified listings, not a substitute for checking `status` first.
 
 Default ranking is verified-first, then score, then price — so for most
 tasks the top result is already the right pick. Don't override this by
 sorting on price alone unless the task explicitly prioritizes cost over
 reliability.
+
+A few newer fields worth knowing:
+
+- **x402_version** (`1`, `2`, or `null`) — which protocol version the
+  endpoint's own 402 challenge actually used last time it was checked.
+  Some x402 clients, including the widely-used `x402-fetch` v1 reference
+  client, only read payment terms from the response body and see nothing
+  from a v2 header-transport challenge. Check this before assuming a
+  `v2` listing is unreachable — the listing may be fine; your client's
+  transport support may not be.
+- **last_probed_at** (unix seconds) — when this listing was last actually
+  checked, pass or fail. Probing is tiered by need, so a long-stable
+  verified listing is deliberately checked less often than a new or
+  recovering one — an older `last_probed_at` on a stable listing means
+  less frequent re-checking, not less trust.
+- **status_changed_at** (unix seconds) — when the *current* status
+  actually started, separate from any metadata edit. Two listings with
+  the identical status and score can differ a lot here — one just
+  recovered, one's been stable for weeks. For the full transition log
+  behind that summary, see `GET /v1/listings/:id/history`.
+- **onchain_unique_payers_30d** (integer or `null`) — real, distinct
+  wallets that paid this listing's address in USDC on Base in the last
+  30 days, read from public chain data. Different evidence from `score`:
+  score proves an endpoint answers correctly, this proves people are
+  actually paying it. The two are never combined into one number, and
+  neither proves the purchased output was any good — that's what payer
+  reports are for.
 
 ## Before paying: check for a free sample
 
@@ -74,6 +103,27 @@ output shape before paying the priced `endpoint_url`. This is especially
 useful for a new or thinly-probed listing you can't yet judge from `score`
 alone. Most listings don't have a sample yet; if `has_sample` is `false`,
 skip straight to weighing `status`/`score`/price instead of looking for one.
+
+This is a continuously-rechecked guarantee, not a one-time check at
+submission: every probe cycle, a declared sample must return HTTP 2xx and
+body that parses as valid JSON, or the whole probe fails. So `has_sample:
+true` with `status: "verified"` means the sample is live and structurally
+valid right now — it still doesn't mean the content is correct or useful.
+
+## Trust boundaries worth knowing
+
+Everything above verifies *behavior* at a URL — correct 402s, a live
+sample, a stable payment destination, real payment volume. None of it
+verifies *who* is running the software behind that URL today. If a
+listing's payment address changes, reputation resets fully (score,
+probe_count, consecutive failures all zeroed) and status drops back to
+`unverified` immediately — an old high score never carries over to a new,
+unproven destination — but this can't tell a legitimate wallet rotation
+apart from a compromise, only that an unproven address hasn't inherited
+trust it didn't earn. A patient attacker who leaves the payment address
+untouched and returns well-formed responses can pass every check this
+directory runs. That's a structural limit of behavior-based verification,
+not a gap specific to one field.
 
 ## Reporting an outcome
 
@@ -110,3 +160,6 @@ optional. Skip this step entirely if the task doesn't call for it.
   a more specific need in mind — a fuller description of what's actually
   required (freshness, format, a particular constraint) gets meaningfully
   better matches than a topic word alone.
+- Don't treat `status: "verified"` as proof of content quality or of who
+  operates the endpoint — it's a behavioral guarantee. Use `has_sample`
+  and payer-report volume to judge output quality specifically.

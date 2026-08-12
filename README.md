@@ -3,7 +3,7 @@
 Find and vet paid [x402](https://x402.org) API services before an agent spends money on them.
 
 A discovery and trust layer for paid x402 services. Every listing is re-probed
-every 15 minutes, and each carries a recency-weighted reliability score built
+every 5 minutes, and each carries a recency-weighted reliability score built
 from that probe history — so an agent can check whether an endpoint actually
 responds *before* paying for it.
 
@@ -18,7 +18,7 @@ Free. No API key. No signup. No account.
 Most x402 directories are catalogs: they list what exists. None of them tell you
 whether a listing still works.
 
-This one probes every endpoint it lists, every 15 minutes, and keeps the history.
+This one probes every endpoint it lists, every 5 minutes, and keeps the history.
 A listing moves `unverified → verified` only after sustained clean probes, and
 falls to `failing` when it stops responding. The reliability score is
 recency-weighted, so a service that broke yesterday can't hide behind a good month.
@@ -63,8 +63,8 @@ Transport: `streamable-http` · Authentication: none · Cost: free
 For agents that support the [Agent Skills](https://agentskills.io) standard
 (Claude Code, Codex, and others), install the skill so the agent knows how
 to use the tools below intelligently — when to prefer `verified` listings,
-how to read `score`/`status`, and how to report a real outcome via
-`tx_hash`:
+how to read `score`/`status`/`x402_version`/on-chain payment evidence, and
+how to report a real outcome via `tx_hash`:
 
 ```bash
 mkdir -p ~/.claude/skills/nohumans-directory
@@ -85,14 +85,15 @@ then by price.
 | `query` | string | Free-text search across service names and descriptions |
 | `category` | string | Exact category filter, e.g. `data.fx`, `infra.trust` |
 | `max_price` | number | Maximum price per call, in USDC |
-| `min_score` | number | Minimum reliability score, `0`–`1` |
-| `limit` | number | Max results, 1–50 (default 10) |
+| `min_score` | number | Minimum reliability score, `0`-`1` |
+| `limit` | number | Max results, 1-50 (default 10) |
 
 ### `get_service_details`
 
 Full record for a single service: pricing, accepted chains, request and response
-schemas, current status, reliability score, median latency, and probe count —
-everything an agent needs before making a paid call.
+schemas, current status, reliability score, median latency, probe count, protocol
+version (`x402_version`), and 30-day on-chain payment volume — everything an
+agent needs before making a paid call.
 
 | Parameter | Type | Description |
 |---|---|---|
@@ -121,6 +122,9 @@ curl 'https://api.nohumans.directory/v1/discover?q=fx&max_price=0.005&min_score=
 # Full detail for one listing
 curl 'https://api.nohumans.directory/v1/listings/{id}'
 
+# Full transition history for one listing
+curl 'https://api.nohumans.directory/v1/listings/{id}/history'
+
 # Live directory stats
 curl 'https://api.nohumans.directory/v1/stats'
 
@@ -147,9 +151,10 @@ curl -X POST https://api.nohumans.directory/v1/listings \
   }'
 ```
 
-Submissions land as `unverified` and are probed within 15 minutes. Sustained
-clean probes promote a listing to `verified`; sustained failures demote it.
-Ranking is earned by uptime, never sold.
+Submissions land as `unverified` and are prioritized in the probe queue —
+typically checked within about 5 minutes. Sustained clean probes promote a
+listing to `verified`; sustained failures demote it. Ranking is earned by
+uptime, never sold.
 
 Save the `claim_token` from the response — it's your edit key, shown once.
 
@@ -158,12 +163,21 @@ rejected listings: [SUBMITTING.md](SUBMITTING.md)
 
 ## How verification works
 
-- Every listing is probed every 15 minutes from independent infrastructure.
+- Every listing is probed on a 5-minute cycle from independent infrastructure,
+  prioritized by need — new and recovering listings are checked closer to
+  every cycle; long-stable verified listings are checked somewhat less often.
 - A live x402 endpoint answers an unpaid request with HTTP `402` and payment
   requirements — that alone proves liveness and protocol conformance. Probes
   never send payment.
 - Reliability scores are recency-weighted: recent behaviour dominates.
 - Status lifecycle: `unverified → verified → failing → delisted`.
+- If a listing's declared payment address changes, its reputation resets and
+  status drops back to `unverified` — an old score never carries over to a
+  new, unproven payment destination.
+- 30-day on-chain payment volume (distinct payers, transaction count) is
+  checked daily from public chain data — separate evidence from the probe
+  score, never blended into it. It shows real payment activity; it doesn't
+  verify output quality.
 - Probes originate from our infrastructure, not from sellers. Reliability
   cannot be self-reported.
 
