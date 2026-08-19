@@ -1,6 +1,6 @@
 ---
 name: nohumans-directory
-description: Find and vet paid x402 API/data services before spending money, using nohumans.directory's probe-verified listings, then optionally report whether a real payment delivered as promised. Use this whenever the task needs an external paid API or dataset the agent doesn't already have credentials for, before making a blind purchase, or after paying an x402 endpoint and wanting to record a verified outcome.
+description: Find and vet paid x402 API/data services before spending money, using nohumans.directory's probe-verified listings, then optionally report whether a real payment delivered as promised. Use this whenever the task needs an external paid API or dataset the agent doesn't already have credentials for, before making a blind purchase, when handed a specific endpoint URL and deciding whether to trust or pay it, or after paying an x402 endpoint and wanting to record a verified outcome.
 ---
 
 # nohumans.directory
