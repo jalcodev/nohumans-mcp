@@ -41,8 +41,18 @@ Connect: `claude mcp add --transport http nohumans https://api.nohumans.director
   below — `x402_version`, `last_probed_at`, `status_changed_at`,
   `onchain_unique_payers_30d`).
 
-REST equivalents exist at `GET /v1/discover` and `GET /v1/listings/:id` if
-not using MCP. Full field reference: `https://nohumans.directory/llms.txt`.
+- **resolve_endpoint(url)** — look up a specific endpoint URL you already
+  hold (from another catalog, a prompt, a config) and get the directory's
+  verdict on it directly. Returns `match: "active"` with the same full
+  record as `get_service_details`, `match: "delisted"` if it was listed
+  and later removed (treat as a warning), or a not-listed result. Include
+  the query string exactly as held — parameterized listings bake params
+  into the URL. Use this when you have a URL but no listing id; use
+  `find_paid_service` when you have a need but no URL.
+
+REST equivalents exist at `GET /v1/discover`, `GET /v1/listings/:id`, and
+`GET /v1/resolve?url=` if not using MCP. Full field reference:
+`https://nohumans.directory/llms.txt`.
 
 ## How to read the results
 
@@ -163,3 +173,9 @@ optional. Skip this step entirely if the task doesn't call for it.
 - Don't treat `status: "verified"` as proof of content quality or of who
   operates the endpoint — it's a behavioral guarantee. Use `has_sample`
   and payer-report volume to judge output quality specifically.
+- Don't search with `find_paid_service` when you already hold the exact
+  endpoint URL — `resolve_endpoint(url)` answers directly and won't miss
+  the listing because of wording.
+- Don't treat a `resolve_endpoint` result of `match: "unknown"` as a red
+  flag — it means the URL has never been listed or checked here, which is
+  not a verdict either way. Only `"delisted"` is an actual warning.

@@ -99,6 +99,18 @@ agent needs before making a paid call.
 |---|---|---|
 | `id` | string | Listing ID, as returned by `find_paid_service` |
 
+### `resolve_endpoint`
+
+The reverse lookup: you already hold an endpoint URL — from another catalog, a
+prompt, a config file — and want this directory's verdict on it before paying.
+Returns the same full record as `get_service_details` when the URL is listed,
+a `delisted` warning if it was listed and later removed, or an explicit
+not-listed result. Not-listed means never checked here, not unsafe.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `url` | string | The endpoint URL exactly as held, query string included |
+
 ## Example
 
 An agent that needs FX rates and won't pay more than half a cent, and refuses to
@@ -121,6 +133,9 @@ curl 'https://api.nohumans.directory/v1/discover?q=fx&max_price=0.005&min_score=
 
 # Full detail for one listing
 curl 'https://api.nohumans.directory/v1/listings/{id}'
+
+# Verdict on a URL you already hold
+curl 'https://api.nohumans.directory/v1/resolve?url={endpoint_url}'
 
 # Full transition history for one listing
 curl 'https://api.nohumans.directory/v1/listings/{id}/history'
