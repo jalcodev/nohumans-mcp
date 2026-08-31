@@ -2,26 +2,34 @@
 
 Find and vet paid [x402](https://x402.org) API services before an agent spends money on them.
 
-A discovery and trust layer for paid x402 services. Every listing is re-probed
-every 5 minutes, and each carries a recency-weighted reliability score built
-from that probe history — so an agent can check whether an endpoint actually
-responds *before* paying for it.
+A discovery and trust layer for paid x402 services. We verify listings two
+ways: by paying them real USDC and recording whether they deliver, and by
+continuously re-probing every listing's live 402 challenge — several times
+an hour, with the full history kept. Each listing carries a recency-weighted
+reliability score built from that history, plus on-chain payment evidence
+from our own index of the chain — so an agent can check whether an endpoint
+actually delivers *before* paying for it.
 
 Free. No API key. No signup. No account.
 
-**Live stats:** https://nohumans.directory · **REST API:** https://api.nohumans.directory
+**Live stats:** https://nohumans.directory/stats · **REST API:** https://api.nohumans.directory
 
 ---
 
 ## Why this exists
 
-Most x402 directories are catalogs: they list what exists. None of them tell you
-whether a listing still works.
+Most x402 directories are catalogs: they list what exists. None of them tell
+you whether a listing still works — let alone whether anyone actually pays
+it, or whether it delivers when paid.
 
-This one probes every endpoint it lists, every 5 minutes, and keeps the history.
-A listing moves `unverified → verified` only after sustained clean probes, and
-falls to `failing` when it stops responding. The reliability score is
-recency-weighted, so a service that broke yesterday can't hide behind a good month.
+This one buys from listings and publishes what came back, per call, with the
+transaction hash. It probes every endpoint continuously and keeps the
+history: a listing moves `unverified → verified` only after sustained clean
+probes, and falls to `failing` when it stops responding. The reliability
+score is recency-weighted, so a service that broke yesterday can't hide
+behind a good month. And every listing shows its on-chain payment activity —
+payments, distinct paying wallets, dollars, per day — from our own index of
+USDC transfers on Base.
 
 Every listing also carries a hand-written description of what the service
 actually does — which sounds mundane until you try semantic search against a
@@ -51,10 +59,8 @@ claude mcp add --transport http nohumans https://api.nohumans.directory/mcp
 ```
 
 ### Direct remote connection
-
-```
 https://api.nohumans.directory/mcp
-```
+
 
 Transport: `streamable-http` · Authentication: none · Cost: free
 
@@ -92,8 +98,10 @@ then by price.
 
 Full record for a single service: pricing, accepted chains, request and response
 schemas, current status, reliability score, median latency, probe count, protocol
-version (`x402_version`), and 30-day on-chain payment volume — everything an
-agent needs before making a paid call.
+version (`x402_version`), and on-chain payment evidence — 30-day totals, a
+per-day series (`onchain_daily`), how many listings share the payment address,
+and the sampled payment shape (x402-signed vs plain transfers vs other) —
+everything an agent needs before making a paid call.
 
 | Parameter | Type | Description |
 |---|---|---|
@@ -115,91 +123,3 @@ not-listed result. Not-listed means never checked here, not unsafe.
 
 An agent that needs FX rates and won't pay more than half a cent, and refuses to
 touch anything with a reliability score under 0.9:
-
-```
-find_paid_service(query="fx rates", max_price=0.005, min_score=0.9)
-```
-
-Returns matching services with their live reliability scores and median latency,
-so the agent can pick one and pay with confidence.
-
-## REST API
-
-The same data is available over plain HTTP, no MCP client required:
-
-```bash
-# Search
-curl 'https://api.nohumans.directory/v1/discover?q=fx&max_price=0.005&min_score=0.9'
-
-# Full detail for one listing
-curl 'https://api.nohumans.directory/v1/listings/{id}'
-
-# Verdict on a URL you already hold
-curl 'https://api.nohumans.directory/v1/resolve?url={endpoint_url}'
-
-# Full transition history for one listing
-curl 'https://api.nohumans.directory/v1/listings/{id}/history'
-
-# Live directory stats
-curl 'https://api.nohumans.directory/v1/stats'
-
-# What agents search for and can't find
-curl 'https://api.nohumans.directory/v1/demand'
-```
-
-Agent-readable docs: [`/llms.txt`](https://api.nohumans.directory/llms.txt)
-
-## Listing a service
-
-Self-serve, no account:
-
-```bash
-curl -X POST https://api.nohumans.directory/v1/listings \
-  -H 'content-type: application/json' -d '{
-    "name": "Your service",
-    "description": "What it does, in a sentence an agent can act on.",
-    "endpoint_url": "https://api.example.com/v1/thing",
-    "category": "data.example",
-    "price_amount": 0.001,
-    "price_currency": "USDC",
-    "chains": ["base"]
-  }'
-```
-
-Submissions land as `unverified` and are prioritized in the probe queue —
-typically checked within about 5 minutes. Sustained clean probes promote a
-listing to `verified`; sustained failures demote it. Ranking is earned by
-uptime, never sold.
-
-Save the `claim_token` from the response — it's your edit key, shown once.
-
-Full submission guide, including the HTTP 402 requirement that causes most
-rejected listings: [SUBMITTING.md](SUBMITTING.md)
-
-## How verification works
-
-- Every listing is probed on a 5-minute cycle from independent infrastructure,
-  prioritized by need — new and recovering listings are checked closer to
-  every cycle; long-stable verified listings are checked somewhat less often.
-- A live x402 endpoint answers an unpaid request with HTTP `402` and payment
-  requirements — that alone proves liveness and protocol conformance. Probes
-  never send payment.
-- Reliability scores are recency-weighted: recent behaviour dominates.
-- Status lifecycle: `unverified → verified → failing → delisted`.
-- If a listing's declared payment address changes, its reputation resets and
-  status drops back to `unverified` — an old score never carries over to a
-  new, unproven payment destination.
-- 30-day on-chain payment volume (distinct payers, transaction count) is
-  checked daily from public chain data — separate evidence from the probe
-  score, never blended into it. It shows real payment activity; it doesn't
-  verify output quality.
-- Probes originate from our infrastructure, not from sellers. Reliability
-  cannot be self-reported.
-
-## License
-
-MIT for this documentation. The directory service itself is free to use.
-
-## Contact
-
-hello@nohumans.directory
