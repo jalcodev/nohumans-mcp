@@ -1,14 +1,16 @@
 ---
 name: nohumans-directory
-description: Find and vet paid x402 API/data services before spending money, using nohumans.directory's probe-verified listings, then optionally report whether a real payment delivered as promised. Use this whenever the task needs an external paid API or dataset the agent doesn't already have credentials for, before making a blind purchase, when handed a specific endpoint URL and deciding whether to trust or pay it, or after paying an x402 endpoint and wanting to record a verified outcome.
+description: Find and vet paid x402 API/data services before spending money, using nohumans.directory — which pays listings real USDC to verify delivery, and continuously re-checks every listing's live 402 — then optionally report whether a real payment delivered as promised. Use this whenever the task needs an external paid API or dataset the agent doesn't already have credentials for, before making a blind purchase, when handed a specific endpoint URL and deciding whether to trust or pay it, or after paying an x402 endpoint and wanting to record a verified outcome.
 ---
 
 # nohumans.directory
 
-A directory of paid (x402) APIs and datasets. Listings are continuously
-re-probed against their live HTTP 402 payment challenge — status is never
-self-reported by the seller. Use it before spending money on an unfamiliar
-paid endpoint, not just when explicitly asked to "search a directory."
+A directory of paid (x402) APIs and datasets, verified by paying: nohumans
+sends real USDC to listed endpoints and confirms delivery against the
+seller's own declared terms. Every listing is also continuously re-probed
+against its live HTTP 402 payment challenge — status is never self-reported
+by the seller. Use it before spending money on an unfamiliar paid endpoint,
+not just when explicitly asked to "search a directory."
 
 ## When to reach for this
 
@@ -96,12 +98,36 @@ A few newer fields worth knowing:
   recovered, one's been stable for weeks. For the full transition log
   behind that summary, see `GET /v1/listings/:id/history`.
 - **onchain_unique_payers_30d** (integer or `null`) — real, distinct
-  wallets that paid this listing's address in USDC on Base in the last
-  30 days, read from public chain data. Different evidence from `score`:
-  score proves an endpoint answers correctly, this proves people are
-  actually paying it. The two are never combined into one number, and
-  neither proves the purchased output was any good — that's what payer
-  reports are for.
+  wallets that sent USDC to this listing's payment address on Base in the
+  last 30 days, from the directory's own index of chain data (since
+  2026-08-29; no ceiling). Different evidence from `score`: score proves an
+  endpoint answers correctly, this proves people are actually paying it.
+  The two are never combined into one number, and neither proves the
+  purchased output was any good — that's what payer reports are for.
+  Three companions, all on `get_service_details`:
+  - `onchain_payto_shared_listings` — how many listings declare the same
+    address. The figures belong to the address, not the route; never sum
+    them across listings.
+  - `onchain_daily` — the per-day series behind the 30-day numbers
+    (`[{day, tx, payers, usd}]`). Read it: a 30-day sum hides cliffs (one
+    seller went from 1.2M payments/day to ~100 inside the window).
+  - `onchain_shape` — a sample of the 25 most recent payments classified
+    by transaction calldata: `eip3009` (transferWithAuthorization, the
+    x402 exact scheme's on-chain signature), `plain` (an ordinary
+    transfer from a wallet), `other` (unclassified). USDC arriving at an
+    address is not x402 revenue; when `plain` exceeds `eip3009`, treat the
+    dollar figures as gross inflow, not x402.
+- **paid_verified** (boolean) — we paid this endpoint real USDC ourselves,
+  unprompted and at our own cost, and confirmed settlement on-chain before
+  recording whether it delivered. This is the one check probing cannot do:
+  a clean 402 handshake does not predict whether a paid call returns
+  anything. Absence of the flag means not yet attempted, never a negative.
+
+  Hundreds of endpoints have been paid this way; both the attempted and
+  delivered counts are floors that only rise, counted on each endpoint's
+  latest outcome. Live figures: GET /v1/stats — never hard-coded here,
+  so this document cannot go stale against them. Method and
+  what it does not establish: https://nohumans.directory/methodology
 
 ## Before paying: check for a free sample
 
@@ -142,14 +168,24 @@ report whether it delivered as expected:
 
 ```
 POST https://nohumans.directory/v1/reports
-{ "listing_id": "...", "ok": true, "tx_hash": "0x...", "detail": "optional" }
+{ "listing_id": "...", "ok": true, "tx_hash": "0x...",
+  "payer_signature": "0x...", "detail": "optional" }
 ```
 
 `tx_hash` must be the real transaction hash of the payment you made on
 Base — it's verified server-side against that listing's actual payment
-address before the report is accepted. This is the one signal probing
-alone can't provide (a listing can be perfectly live and 402-conformant
-and still not deliver a useful result). Reports only affect ranking once
+address before the report is accepted. The `payer_signature` must be signed
+by the wallet that actually sent that payment - the recovered signer is
+checked against the on-chain transfer, so a public tx hash alone can't be
+replayed by someone who didn't pay. POST without a signature and the API
+returns the exact message to sign; that echoed message is the
+authoritative format.
+
+A report is evidence `paid_verified` cannot give you: our own paid probe
+shows the endpoint delivered something to us, while a report shows it
+delivered something useful to a buyer who actually needed it.
+
+Reports only affect ranking once
 3+ distinct payers have reported on a listing, so a single report won't
 move anything by itself, but it still contributes to that threshold.
 
