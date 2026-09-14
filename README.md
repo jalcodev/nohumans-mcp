@@ -18,9 +18,9 @@ Free. No API key. No signup. No account.
 
 ## Why this exists
 
-Most x402 directories are catalogs: they list what exists. None of them tell
-you whether a listing still works — let alone whether anyone actually pays
-it, or whether it delivers when paid.
+Most x402 directories are catalogs: they list what exists. Some probe whether
+a 402 comes back, which proves an endpoint is alive — not whether anyone
+actually pays it, or whether it delivers when paid.
 
 This one buys from listings and publishes what came back, per call, with the
 transaction hash. It probes every endpoint continuously and keeps the
@@ -118,6 +118,17 @@ not-listed result. Not-listed means never checked here, not unsafe.
 | Parameter | Type | Description |
 |---|---|---|
 | `url` | string | The endpoint URL exactly as held, query string included |
+
+### `what_agents_are_asking_for`
+
+For sellers: the aggregate demand feed — what buyers searched this directory
+for, ranked by how many distinct days a term was asked (not by volume, which is
+trivially faked). Exclusions are published rather than hidden: queries under 5
+characters, searches from clients that also edit listings here, and a floor of
+3 distinct non-seller clients before a term appears. The window ends a day
+behind live and the response says when. Same data as `GET /v1/demand`.
+
+No parameters.
 
 ## Example
 
