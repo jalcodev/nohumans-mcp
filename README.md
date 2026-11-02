@@ -41,6 +41,9 @@ npm package, a small bridge to the same server (no dependencies, Node 18+):
 { "mcpServers": { "nohumans": { "command": "npx", "args": ["-y", "nohumans-mcp"] } } }
 ```
 
+The bridge is `index.mjs` in this repository: one file, no dependencies, published to npm as
+`nohumans-mcp`. `NOHUMANS_MCP_URL` overrides the endpoint.
+
 Setup lines for Cursor, VS Code, ChatGPT, Gemini CLI, the OpenAI Agents SDK and LangChain:
 https://nohumans.directory/integrate#connect
 

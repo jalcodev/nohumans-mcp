@@ -1,0 +1,34 @@
+{
+  "name": "nohumans-mcp",
+  "version": "1.0.0",
+  "description": "Find and vet paid (x402) APIs for AI agents before spending money. MCP server for nohumans.directory: every listing is probed for a valid payment request, and many are bought with real USDC to check they deliver.",
+  "type": "module",
+  "bin": {
+    "nohumans-mcp": "index.mjs"
+  },
+  "files": [
+    "index.mjs",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "mcp",
+    "modelcontextprotocol",
+    "model-context-protocol",
+    "x402",
+    "agents",
+    "paid-apis",
+    "api-directory",
+    "usdc",
+    "base",
+    "agent-payments"
+  ],
+  "homepage": "https://nohumans.directory",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jalcodev/nohumans-mcp.git"
+  },
+  "license": "MIT"
+}
