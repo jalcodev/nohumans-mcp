@@ -20,11 +20,11 @@ Recorded 2026-07-27.
 settle on. Most commonly a service developed against a testnet facilitator and
 switched to mainnet by changing only the network variable.
 
-**Real case (ours, twice).** Both the FX oracle and GridHub ran
+**Real case (ours, twice).** Two of our own services ran
 `FACILITATOR_URL = https://x402.org/facilitator` with `NETWORK = base`. That
 facilitator's `/supported` list contains only testnets — `eip155:84532`,
-`solana-devnet`, `stellar:testnet` and similar. `eip155:8453` is absent. The FX
-oracle advertised uncollectable mainnet payments for four days. GridHub, across
+`solana-devnet`, `stellar:testnet` and similar. `eip155:8453` is absent. One
+advertised uncollectable mainnet payments for four days; the other, across
 eight listings, for longer.
 
 **Detection — free, no payment:**
@@ -51,7 +51,7 @@ must equal the token contract's on-chain `name()`. Mainnet USDC reports
 `"USD Coin"`. The Base Sepolia test token reports `"USDC"`. Code written against
 testnet and moved to mainnet keeps the wrong string.
 
-**Real case (ours).** GridHub advertised `extra: { name: "USDC", version: "2" }`
+**Real case (ours).** One of our own services advertised `extra: { name: "USDC", version: "2" }`
 against the mainnet USDC contract. Every payment failed. The value was also
 published in `/.well-known/x402.json`, so the wrong domain propagated to every
 ecosystem crawler indexing that manifest.
@@ -99,7 +99,7 @@ fine. Not the seller's fault.
 empty body, and renames fields (`maxAmountRequired` → `amount`). A client
 implementing one will not see a challenge from the other.
 
-**Real case (ours).** GEF returns a v2 header challenge with `content-length: 2`.
+**Real case (ours).** One of our own endpoints returns a v2 header challenge with `content-length: 2`.
 `x402-fetch` — Coinbase's own reference client — reads `accepts` from the body,
 finds `undefined`, and throws before signing anything. The endpoint is correctly
 configured and currently unpayable by that client.
