@@ -1,249 +1,77 @@
 # Submitting to nohumans.directory
 
-Self-serve, no account, no API key. One `POST` and you're in the probe queue.
+No account, no API key. The current rules, prices and answers live on the site and are
+kept up to date there:
 
-The rules below are ordered by how often each one actually causes a problem.
-The first is responsible for most failed listings.
+- **List it, step by step in a browser:** https://nohumans.directory/submit
+- **What it costs, what you get, paid verification:** https://nohumans.directory/sellers
+- **Seller questions** (cost, verification time, failed purchases, payment address
+  changes, editing, disputes): https://nohumans.directory/sellers/faq
+- **The exact API**, for a coding agent: https://api.nohumans.directory/llms.txt and
+  https://api.nohumans.directory/v1/sellers
 
----
+This page keeps the advice that does not change.
 
-## 1. Your `endpoint_url` must return HTTP 402 to an unpaid GET
-
-This is the whole verification model. Every 15 minutes we send a plain,
-unauthenticated `GET` to your `endpoint_url` and send no payment. A live x402
-endpoint answers with `402` and its payment requirements — that single response
-proves the service is up *and* protocol-conformant.
-
-**Test before you submit:**
+## 1. Check your endpoint first, free
 
 ```bash
-curl -s -o /dev/null -w '%{http_code}\n' 'YOUR_ENDPOINT_URL'
+curl -s "https://api.nohumans.directory/v1/check?url=https://api.example.com/v1/thing"
 ```
 
-You want `402`. Common results and what they mean:
+One live check with the same unpaid requests our prober makes: whether it would verify,
+the payment terms we read from your 402, whether the listing fee is due. Nothing is
+created or charged. POST the whole listing body to the same route to validate it too.
 
-| Code | Meaning | Fix |
+## 2. Your endpoint must answer an unpaid request with HTTP 402
+
+That is the verification model: a live x402 endpoint answers an unpaid GET or POST with
+402 and its payment requirements. Common answers and fixes:
+
+| Answer | Meaning | Fix |
 |---|---|---|
 | `402` | Correct. | — |
-| `400` | Route requires query params before it checks payment. | Include the params in the URL, or return 402 before validating input. |
-| `404` | Wrong path, or nothing deployed there. | Point at a real route, not the bare domain. |
-| `405` | Route is POST-only. | Submit a GET-able paid route instead. |
-| `200` | Returning data without payment. | Point at a route that's actually gated. |
-| timeout | Slow or unreachable. | Probes time out at 5s. |
+| `400` / `422` | The route checks its inputs before asking for payment. | Return the 402 first, or list a URL that includes working parameters. |
+| `404` | Wrong path, or nothing deployed. | Point at a real paid route, not the bare domain. |
+| `200` | Data returned without payment. | Point at a route that is actually gated. |
+| `3xx` | A redirect. Probes do not follow redirects. | Submit the final URL. |
 
-Two traps worth calling out, because both have caught real submissions:
+## 3. Write the description for an agent, not a landing page
 
-**Don't point at your bare domain** unless the root itself returns 402. Many
-services 404 or serve a landing page there.
+Search matches the description, and almost every search is free text. Name the actual
+data or action, the coverage limits and the units.
 
-**Don't point at a POST-only route.** If your paid action is `POST /actions/run`,
-submit a GET-able route from the same service (a discovery or quote endpoint that
-also returns 402) and describe the POST action in your description.
+> US equity fundamentals: income, balance sheet and cash-flow statements, ratios,
+> quarterly earnings, SEC filings. Ticker or CIK. US stocks only: no crypto, options,
+> FX or international equities.
 
-If your framework validates query parameters *before* checking payment, a bare
-probe hit gets `400` instead of `402`. Returning the payment challenge first is
-both more spec-correct and what lets crawlers and registries recognise you at all.
+Limits help: "US stocks only" stops agents wasting a paid call.
 
----
+## 4. Declare what a valid request looks like
 
-## 2. `endpoint_url` can never be changed
+Give `request_schema` with an `example`, `const` or `default` for every required input,
+and a free `sample_query` if you have a preview route (it must differ from
+`endpoint_url`). A leading reason paid calls fail is a buyer that cannot tell what the
+route needs.
 
-It's immutable by design — otherwise a listing could earn reputation on one
-service and silently be repointed at another. Choose carefully.
+## 5. Reuse an existing category
 
-Everything else (name, description, price, chains, schemas) can be updated later
-with your claim token. If you must change the URL, delist and resubmit — the new
-listing starts its probe history from zero.
-
----
-
-## 3. Save your `claim_token`
-
-The submission response includes a `claim_token`. It is shown **once** and never
-again. It's your edit key for `PATCH /v1/listings/:id`.
-
-Lose it and you cannot update your own listing.
-
----
-
-## 4. Write the description for an agent, not for a landing page
-
-Descriptions are what free-text search matches against, and in practice almost
-all discovery queries are free-text rather than category-filtered. A vague
-description means agents looking for exactly what you sell won't find you.
-
-**Useful:**
-
-> US equity fundamentals: income, balance sheet and cash-flow statements, live
-> ratios and market cap, quarterly earnings, SEC filings, 13F holdings, insider
-> trades. Accepts ticker or CIK. US stocks only — no crypto, options, FX, or
-> international equities. $0.02 per call.
-
-**Not useful:**
-
-> The most powerful financial data platform for the agentic economy.
-
-Concretely: name the actual data or action, name the coverage limits, name the
-units. Limits help more than they hurt — "US stocks only" stops agents wasting a
-paid call discovering you don't have what they need.
-
----
-
-## 5. `sample_query` must differ from `endpoint_url`
-
-Optional. If you offer a free preview that returns `200` without payment, put it
-here — it lets agents verify your response shape before spending anything.
-
-If you don't offer one, omit the field. It cannot be identical to
-`endpoint_url`; submissions that repeat the same URL are rejected.
-
----
-
-## 6. Reuse an existing category
-
-Category filtering is exact-match, so an invented spelling is invisible to anyone
-filtering on the conventional one. Check what already exists:
+Category filters are exact. Check what exists before inventing one:
 
 ```bash
 curl -s https://api.nohumans.directory/v1/categories
 ```
 
-Convention is `namespace.thing`, lowercase, dot-separated —
-`data.stocks`, `infra.trust`, `commerce.giftcards`, `action.carbon-retirement`.
-Reuse where one fits; invent sparingly, and keep the two-part shape.
+Convention: `namespace.thing`, lowercase, e.g. `data.stocks`, `infra.trust`.
 
----
+## 6. Save your claim token
 
-## Submitting
-
-```bash
-curl -X POST https://api.nohumans.directory/v1/listings \
-  -H 'content-type: application/json' -d '{
-    "name": "Your service",
-    "description": "What it returns, what it covers, what it costs.",
-    "endpoint_url": "https://api.example.com/v1/thing",
-    "category": "data.example",
-    "price_amount": 0.001,
-    "price_currency": "USDC",
-    "chains": ["base"],
-    "sample_query": "https://api.example.com/v1/thing?preview=true",
-    "submitter_email": "you@example.com"
-  }'
-```
-
-Required: `name`, `description`, `endpoint_url`, `category`, `price_amount`.
-`endpoint_url` must be HTTPS and must not resolve to a private or loopback
-address.
-
-Response:
-
-```json
-{
-  "id": "46719857-b1d",
-  "claim_token": "…",
-  "status": "unverified",
-  "note": "Will be probed within 15 minutes."
-}
-```
-
-### Warnings
-
-A submission may come back with a `warnings` array alongside the claim token:
-
-```json
-{
-  "id": "f6bc2e23-c28",
-  "claim_token": "…",
-  "status": "unverified",
-  "warnings": [
-    {
-      "code": "endpoint_not_402",
-      "detail": "endpoint_url returned HTTP 404 to an unpaid GET, not 402. …"
-    }
-  ]
-}
-```
-
-Warnings never block a submission — the listing is already in. They are
-observations from a single check made while you are still here to act on them.
-
-| code | what it means |
-|---|---|
-| `endpoint_not_402` | an unpaid GET returned something other than 402 |
-| `endpoint_redirects` | a 3xx; probes do not follow redirects, so this will not verify |
-| `challenge_unreadable` | 402 returned, but no parseable payment requirements in the body or the `payment-required` header |
-| `probe_inconclusive` | we could not reach the endpoint just then — one observation, not a verdict |
-| `price_mismatch` | your declared price differs from the amount in the endpoint's own 402 |
-| `replacement_character` | name or description contains U+FFFD; some bytes did not survive encoding before reaching us |
-| `new_category` | the category is not used by any existing listing (fine, if nothing existing fits) |
-
-Each check stays silent unless it is certain. A price is only compared when the
-asset's decimals are known; an unreachable endpoint is reported as a single
-observation rather than a failure.
-
-After submission everything is public. Status, reliability score, probe history
-and the payment terms we observe in your 402 are all at
-`GET /v1/listings/:id`, refreshed every 15 minutes. We do not email operators
-when an endpoint breaks — monitoring your own service is yours to do, and the
-data to do it with is free.
-
----
-
-## What happens next
-
-Your listing enters at `unverified` and is probed every 15 minutes.
-
-Reputation is a recency-weighted rolling score: each probe moves the score 10%
-toward its result, so recent behaviour dominates and a service that broke
-yesterday can't hide behind a good month.
-
-**To reach `verified`** a listing needs at least 3 probes, no current failure
-streak, and a score above 0.8. Because the score climbs 10% per probe from a
-starting point of zero, that means roughly sixteen consecutive clean probes —
-about four hours, not four minutes. This is deliberate: the badge should cost
-something.
-
-**Five consecutive failures** drop a listing to `failing`.
-
-**Recovery returns a listing to `unverified`, not straight to `verified`.** One
-good probe after a failure streak proves liveness, not reliability — so the
-listing re-earns `verified` through the normal path. The badge never outruns the
-score.
-
-**Thirty days in `failing`** auto-delists the listing. Fix the endpoint and it
-recovers on the next passing probe; there's no penalty for having been down.
-
-Check status any time:
-
-```bash
-curl -s https://api.nohumans.directory/v1/listings/YOUR_ID
-```
-
-## Updating a listing
-
-```bash
-curl -X PATCH https://api.nohumans.directory/v1/listings/YOUR_ID \
-  -H 'x-claim-token: YOUR_CLAIM_TOKEN' \
-  -H 'content-type: application/json' \
-  -d '{"price_amount": 0.002, "chains": ["base","solana"]}'
-```
-
-## Claiming a listing someone else submitted
-
-Services are sometimes indexed on an operator's behalf. If you own a listing you
-didn't submit, you can claim it — see `POST /v1/listings/:id/claim`.
-
----
+The listing response includes a `claim_token`, shown once. It is your key for
+`PATCH /v1/listings/:id` (header `x-claim-token`) and for buying paid verification of
+your own listing.
 
 ## Ranking
 
-Ranking is earned by probe history and cannot be bought. There is no paid
-placement, and there won't be — the moment ranking is purchasable, agents route
-around the directory and the whole thing is worthless.
-
-Verified listings rank above unverified, then by reliability score, then by
-price.
-
----
+Order is earned by probes and purchases and cannot be bought. No fee, plan or licence
+changes a listing's status, score or place in results.
 
 Questions: hello@nohumans.directory

@@ -1,76 +1,65 @@
-# nohumans.directory — MCP Server
+# nohumans.directory — MCP server
 
-Find and vet paid [x402](https://x402.org) API services before an agent spends money on them.
+Find and vet paid [x402](https://x402.org) APIs and datasets before an agent spends money on them.
 
-A discovery and trust layer for paid x402 services. We verify listings two
-ways: by paying them real USDC and recording whether they deliver, and by
-continuously re-probing every listing's live 402 challenge — several times
-an hour, with the full history kept. Each listing carries a recency-weighted
-reliability score built from that history, plus on-chain payment evidence
-from our own index of the chain — so an agent can check whether an endpoint
-actually delivers *before* paying for it.
+nohumans.directory is a registry of pay-per-call APIs that AI agents can buy with USDC.
+Every listing is probed for a valid payment request (a live x402 endpoint answers an
+unpaid request with HTTP 402), and many listings are bought with real USDC on Base: the
+outcome is published with its settlement transaction, including purchases that took the
+money and did not deliver. Placement in results is never sold.
 
-Free. No API key. No signup. No account.
+All tools are free and read-only. No API key, no account. The directory never moves money:
+any payment happens in your own agent, under the seller's terms.
 
-**Live stats:** https://nohumans.directory/stats · **REST API:** https://api.nohumans.directory
+**Website:** https://nohumans.directory · **Live stats:** https://nohumans.directory/stats ·
+**API reference for agents:** https://api.nohumans.directory/llms.txt
 
----
+## Install
 
-## Why this exists
+The server is remote: Streamable HTTP, no authentication.
 
-Most x402 directories are catalogs: they list what exists. Some probe whether
-a 402 comes back, which proves an endpoint is alive — not whether anyone
-actually pays it, or whether it delivers when paid.
+```
+https://api.nohumans.directory/mcp
+```
 
-This one buys from listings and publishes what came back, per call, with the
-transaction hash. It probes every endpoint continuously and keeps the
-history: a listing moves `unverified → verified` only after sustained clean
-probes, and falls to `failing` when it stops responding. The reliability
-score is recency-weighted, so a service that broke yesterday can't hide
-behind a good month. And every listing shows its on-chain payment activity —
-payments, distinct paying wallets, dollars, per day — from our own index of
-USDC transfers on Base.
-
-Every listing also carries a hand-written description of what the service
-actually does — which sounds mundane until you try semantic search against a
-catalog of bare URLs.
-
-## Installation
-
-Remote server, streamable HTTP. No install, no build step, no credentials.
-
-### Claude Code
+Claude Code:
 
 ```bash
 claude mcp add --transport http nohumans https://api.nohumans.directory/mcp
 ```
 
-### Claude Desktop / any stdio-only client
+Clients that read an `mcpServers` block with remote servers:
 
 ```json
-{
-  "mcpServers": {
-    "nohumans": {
-      "command": "npx",
-      "args": ["mcp-remote", "https://api.nohumans.directory/mcp"]
-    }
-  }
-}
+{ "mcpServers": { "nohumans": { "type": "http", "url": "https://api.nohumans.directory/mcp" } } }
 ```
 
-### Direct remote connection
-https://api.nohumans.directory/mcp
+Clients that only run local (stdio) servers: use the [`nohumans-mcp`](https://www.npmjs.com/package/nohumans-mcp)
+npm package, a small bridge to the same server (no dependencies, Node 18+):
 
+```json
+{ "mcpServers": { "nohumans": { "command": "npx", "args": ["-y", "nohumans-mcp"] } } }
+```
 
-Transport: `streamable-http` · Authentication: none · Cost: free
+Setup lines for Cursor, VS Code, ChatGPT, Gemini CLI, the OpenAI Agents SDK and LangChain:
+https://nohumans.directory/integrate#connect
+
+## Tools
+
+| Tool | What it does |
+|---|---|
+| `find_paid_service` | Search by need: `query` (describe the need specifically), `category`, `max_price`, `min_score` (0..1), `protocol` (`x402` or `mpp`), `mpp_method`, `limit`. Ranked verified first, then probe score, then price. |
+| `get_service_details` | One listing's full record by `id`: request shape, observed payment terms, probe history, latest purchase outcome. |
+| `resolve_endpoint` | Check an endpoint `url` you already hold: listed, delisted, or never checked here (not the same as unsafe). |
+| `what_agents_are_asking_for` | The aggregate demand feed: what agents search this directory for. For sellers deciding what to build or list. |
+
+What the main fields mean (`status`, `score`, `paid_verified`, `latest_purchase_delivered`,
+`evidence_tier`) and the rules an agent should follow before paying:
+https://nohumans.directory/integrate#rules
 
 ## Agent Skill
 
-For agents that support the [Agent Skills](https://agentskills.io) standard
-(Claude Code, Codex, and others), install the skill so the agent knows how
-to use the tools below intelligently — when to prefer `verified` listings,
-how to read `score`/`status`/`x402_version`/on-chain payment evidence, and
-how to report a real outcome via `tx_hash`:
+For agents that support [Agent Skills](https://agentskills.io) (Claude Code and others):
 
 ```bash
 mkdir -p ~/.claude/skills/nohumans-directory
@@ -78,59 +67,16 @@ curl -o ~/.claude/skills/nohumans-directory/SKILL.md \
   https://raw.githubusercontent.com/jalcodev/nohumans-mcp/main/skills/nohumans-directory/SKILL.md
 ```
 
-## Tools
+## Selling an API
 
-### `find_paid_service`
+List it at https://nohumans.directory/submit (check it free first). What it costs and what
+you get: https://nohumans.directory/sellers. Notes for submitters: [SUBMITTING.md](SUBMITTING.md).
 
-Search paid x402 services by capability, price ceiling, and minimum reliability
-score. Returns ranked results — verified services first, then by reliability,
-then by price.
+## Method
 
-| Parameter | Type | Description |
-|---|---|---|
-| `query` | string | Free-text search across service names and descriptions |
-| `category` | string | Exact category filter, e.g. `data.fx`, `infra.trust` |
-| `max_price` | number | Maximum price per call, in USDC |
-| `min_score` | number | Minimum reliability score, `0`-`1` |
-| `limit` | number | Max results, 1-50 (default 10) |
+How listings are probed, bought and scored, with every correction and rule change:
+https://nohumans.directory/methodology
 
-### `get_service_details`
+## Licence
 
-Full record for a single service: pricing, accepted chains, request and response
-schemas, current status, reliability score, median latency, probe count, protocol
-version (`x402_version`), and on-chain payment evidence — 30-day totals, a
-per-day series (`onchain_daily`), how many listings share the payment address,
-and the sampled payment shape (x402-signed vs plain transfers vs other) —
-everything an agent needs before making a paid call.
-
-| Parameter | Type | Description |
-|---|---|---|
-| `id` | string | Listing ID, as returned by `find_paid_service` |
-
-### `resolve_endpoint`
-
-The reverse lookup: you already hold an endpoint URL — from another catalog, a
-prompt, a config file — and want this directory's verdict on it before paying.
-Returns the same full record as `get_service_details` when the URL is listed,
-a `delisted` warning if it was listed and later removed, or an explicit
-not-listed result. Not-listed means never checked here, not unsafe.
-
-| Parameter | Type | Description |
-|---|---|---|
-| `url` | string | The endpoint URL exactly as held, query string included |
-
-### `what_agents_are_asking_for`
-
-For sellers: the aggregate demand feed — what buyers searched this directory
-for, ranked by how many distinct days a term was asked (not by volume, which is
-trivially faked). Exclusions are published rather than hidden: queries under 5
-characters, searches from clients that also edit listings here, and a floor of
-3 distinct non-seller clients before a term appears. The window ends a day
-behind live and the response says when. Same data as `GET /v1/demand`.
-
-No parameters.
-
-## Example
-
-An agent that needs FX rates and won't pay more than half a cent, and refuses to
-touch anything with a reliability score under 0.9:
+Contents of this repository: MIT. Directory data: CC BY 4.0, credit "nohumans.directory" with a link.
