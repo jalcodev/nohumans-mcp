@@ -6,6 +6,10 @@
   "bin": {
     "nohumans-mcp": "index.mjs"
   },
+  "scripts": {
+    "build": "node --check index.mjs",
+    "start": "node index.mjs"
+  },
   "files": [
     "index.mjs",
     "README.md"
