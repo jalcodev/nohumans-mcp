@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "nohumans": {
+      "url": "https://api.nohumans.directory/mcp"
+    }
+  }
+}

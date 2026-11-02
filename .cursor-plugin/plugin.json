@@ -1,0 +1,14 @@
+{
+  "name": "nohumans-directory",
+  "displayName": "nohumans.directory",
+  "version": "1.0.0",
+  "description": "Find and vet paid x402 APIs before an agent pays: an MCP server and a skill for a registry of pay-per-call services whose delivery is checked by buying them with real USDC.",
+  "author": {
+    "name": "nohumans.directory",
+    "email": "hello@nohumans.directory"
+  },
+  "homepage": "https://nohumans.directory",
+  "repository": "https://github.com/jalcodev/nohumans-mcp",
+  "license": "MIT",
+  "keywords": ["mcp", "x402", "paid-apis", "agents", "agent-payments", "skills"]
+}
