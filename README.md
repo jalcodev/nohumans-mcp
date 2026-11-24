@@ -1,5 +1,7 @@
 # nohumans.directory — MCP server
 
+[![jalcodev/nohumans-mcp MCP server](https://glama.ai/mcp/servers/jalcodev/nohumans-mcp/badges/score.svg)](https://glama.ai/mcp/servers/jalcodev/nohumans-mcp)
+
 Find and vet paid [x402](https://x402.org) APIs and datasets before an agent spends money on them.
 
 nohumans.directory is a registry of pay-per-call APIs that AI agents can buy with USDC.
